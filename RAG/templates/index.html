@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Trợ lý so sánh văn bản pháp lý chạy cục bộ — RAG + Local LLM" />
+    <title>LegalDiff — So sánh Văn bản Pháp lý</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <!-- ─── Header ─────────────────────────────────────────────── -->
+    <header id="app-header">
+        <div class="header-inner">
+            <div class="logo">
+                <span class="logo-icon">⚖️</span>
+                <h1>LegalDiff</h1>
+                <span class="logo-tag">RAG + Local LLM</span>
+            </div>
+            <div class="header-status" id="header-status">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text">Đang kết nối...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ─── Tab Navigation ─────────────────────────────────────── -->
+    <nav id="tab-nav">
+        <div class="tab-nav-inner">
+            <button class="tab-btn active" data-tab="upload" id="tab-btn-upload">
+                <span class="tab-icon">📤</span>
+                <span class="tab-label">Upload</span>
+            </button>
+            <button class="tab-btn" data-tab="compare" id="tab-btn-compare">
+                <span class="tab-icon">🔍</span>
+                <span class="tab-label">So sánh</span>
+            </button>
+            <button class="tab-btn" data-tab="chat" id="tab-btn-chat">
+                <span class="tab-icon">💬</span>
+                <span class="tab-label">Chatbot</span>
+            </button>
+            <div class="tab-indicator" id="tab-indicator"></div>
+        </div>
+    </nav>
+
+    <!-- ─── Main Content ───────────────────────────────────────── -->
+    <main id="main-content">
+
+        <!-- ═══ TAB: Upload ═══ -->
+        <section class="tab-panel active" id="panel-upload">
+            <div class="upload-container">
+                <div class="upload-card" id="upload-zone-1">
+                    <div class="upload-dropzone" id="dropzone-1">
+                        <div class="dropzone-content">
+                            <div class="dropzone-icon">📄</div>
+                            <p class="dropzone-title">Tài liệu 1 — Bản gốc</p>
+                            <p class="dropzone-desc">Kéo thả file .docx hoặc .txt vào đây</p>
+                            <label class="dropzone-btn" for="file-input-1">Chọn file</label>
+                            <input type="file" id="file-input-1" accept=".docx,.txt,.text" hidden />
+                        </div>
+                        <div class="dropzone-loaded" id="loaded-1" style="display:none">
+                            <span class="loaded-icon">✅</span>
+                            <span class="loaded-name" id="loaded-name-1"></span>
+                            <button class="loaded-clear" data-slot="1">✕</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="upload-divider">
+                    <span>VS</span>
+                </div>
+
+                <div class="upload-card" id="upload-zone-2">
+                    <div class="upload-dropzone" id="dropzone-2">
+                        <div class="dropzone-content">
+                            <div class="dropzone-icon">📄</div>
+                            <p class="dropzone-title">Tài liệu 2 — Bản sửa đổi</p>
+                            <p class="dropzone-desc">Kéo thả file .docx hoặc .txt vào đây</p>
+                            <label class="dropzone-btn" for="file-input-2">Chọn file</label>
+                            <input type="file" id="file-input-2" accept=".docx,.txt,.text" hidden />
+                        </div>
+                        <div class="dropzone-loaded" id="loaded-2" style="display:none">
+                            <span class="loaded-icon">✅</span>
+                            <span class="loaded-name" id="loaded-name-2"></span>
+                            <button class="loaded-clear" data-slot="2">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="upload-actions">
+                <button class="btn btn-primary btn-lg" id="btn-upload" disabled>
+                    <span class="btn-spinner" id="upload-spinner" style="display:none"></span>
+                    Upload &amp; Xử lý
+                </button>
+            </div>
+
+            <div class="upload-result" id="upload-result" style="display:none">
+                <div class="result-card glass">
+                    <h3>✅ Upload thành công</h3>
+                    <p id="upload-result-text"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ TAB: Compare ═══ -->
+        <section class="tab-panel" id="panel-compare">
+            <div class="compare-toolbar">
+                <button class="btn btn-primary" id="btn-compare" disabled>
+                    <span class="btn-spinner" id="compare-spinner" style="display:none"></span>
+                    Chạy so sánh
+                </button>
+                <div class="compare-filters">
+                    <button class="filter-btn active" data-filter="all">Tất cả</button>
+                    <button class="filter-btn" data-filter="modified">Sửa đổi</button>
+                    <button class="filter-btn" data-filter="added">Thêm mới</button>
+                    <button class="filter-btn" data-filter="removed">Đã xóa</button>
+                    <button class="filter-btn" data-filter="unchanged">Giữ nguyên</button>
+                </div>
+            </div>
+
+            <div class="compare-stats" id="compare-stats" style="display:none">
+                <div class="stat-card glass">
+                    <span class="stat-number" id="stat-total">0</span>
+                    <span class="stat-label">Tổng mục</span>
+                </div>
+                <div class="stat-card glass stat-modified">
+                    <span class="stat-number" id="stat-modified">0</span>
+                    <span class="stat-label">Sửa đổi</span>
+                </div>
+                <div class="stat-card glass stat-added">
+                    <span class="stat-number" id="stat-added">0</span>
+                    <span class="stat-label">Thêm mới</span>
+                </div>
+                <div class="stat-card glass stat-removed">
+                    <span class="stat-number" id="stat-removed">0</span>
+                    <span class="stat-label">Đã xóa</span>
+                </div>
+                <div class="stat-card glass stat-unchanged">
+                    <span class="stat-number" id="stat-unchanged">0</span>
+                    <span class="stat-label">Giữ nguyên</span>
+                </div>
+            </div>
+
+            <div class="compare-results" id="compare-results">
+                <div class="empty-state">
+                    <p>📋 Chưa có kết quả. Upload 2 tài liệu rồi nhấn "Chạy so sánh".</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ TAB: Chatbot ═══ -->
+        <section class="tab-panel" id="panel-chat">
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-welcome">
+                        <div class="welcome-icon">⚖️</div>
+                        <h2>Trợ lý Pháp lý</h2>
+                        <p>Hỏi bất kỳ câu hỏi nào về nội dung tài liệu đã upload.<br/>
+                        Hệ thống sẽ tìm kiếm và trích dẫn nguồn có liên quan.</p>
+                        <div class="welcome-chips">
+                            <button class="chip" data-query="Điều 5 quy định nội dung gì?">Điều 5 quy định gì?</button>
+                            <button class="chip" data-query="Khoản 1 Điều 8 quy định giai đoạn đầu tư nào?">Khoản 1 Điều 8</button>
+                            <button class="chip" data-query="Trình tự đầu tư dự án công nghệ thông tin">Trình tự đầu tư CNTT</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="chat-input-wrapper glass">
+                        <input type="text" id="chat-input" placeholder="Nhập câu hỏi về tài liệu..." autocomplete="off" />
+                        <button class="btn btn-send" id="btn-send" disabled>
+                            <span id="send-icon">➤</span>
+                            <span class="btn-spinner" id="chat-spinner" style="display:none"></span>
+                        </button>
+                    </div>
+                    <p class="chat-hint" id="chat-hint">
+                        <span class="status-dot" id="llm-dot"></span>
+                        <span id="llm-status-text">Đang kiểm tra LLM...</span>
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

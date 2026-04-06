@@ -44,7 +44,7 @@ Trong repo bạn đang dùng:
 Nếu bạn chưa có index hoặc muốn build lại:
 
 ```bash
-python RAG/rag_pipeline.py --input-dir RAG/input_docs --output-dir RAG/output_index
+python RAG/rag_pipeline.py index --input-dir RAG/input_docs --output-dir RAG/output_index
 ```
 
 ---
@@ -130,7 +130,10 @@ python RAG/eval_retrieval.py ^
   --compare-only ^
   --index-dir RAG/output_index ^
   --dataset RAG/eval_queries.auto.jsonl ^
-  --top-k 5
+  --top-k 5 ^
+  --evidence-top-k 3 ^
+  --min-support-rate 0.7 ^
+  --min-supported-queries 1
 ```
 
 Nếu muốn chạy nhanh trên một phần dataset:
@@ -146,6 +149,8 @@ Sau mỗi lần chạy, script tạo một thư mục theo `run_id`:
 - `retrieval_runs/<run_id>/run_config.json`
 - `retrieval_runs/<run_id>/retrieval_logs.jsonl`
 - `retrieval_runs/<run_id>/report.md` (bản xem nhanh top‑k)
+- `retrieval_runs/<run_id>/evidence_summary.json` (thống kê đủ/thiếu bằng chứng theo config)
+- `retrieval_runs/<run_id>/final_conclusion.md` (kết luận tự động có enforce nguyên tắc bằng chứng)
 
 ### 5.3 `retrieval_logs.jsonl` gồm những gì?
 
@@ -164,6 +169,21 @@ Mỗi dòng tương ứng **(query × config)** và có:
 
 Đây chính là dữ liệu bạn cần để làm bước 4 (chuẩn hoá citation) về sau.
 
+### 5.4 Enforce nguyên tắc “không bằng chứng -> không kết luận”
+
+Script hiện đã có tầng kết luận cuối theo evidence gate:
+
+- Mỗi cặp `(query, config)` sẽ được gán trạng thái:
+  - `SUPPORTED`: có citation hợp lệ trong cửa sổ `--evidence-top-k`.
+  - `INSUFFICIENT_EVIDENCE`: không có citation relevant trong cửa sổ bằng chứng.
+  - `NO_GROUND_TRUTH`: query không có nhãn phù hợp để kiểm chứng.
+- Nếu một config không đạt ngưỡng:
+  - `support_rate >= --min-support-rate`
+  - `supported_queries >= --min-supported-queries`
+  thì config đó **không được phép** đi tới kết luận cuối.
+- Nếu không có config nào vượt ngưỡng bằng chứng, file `final_conclusion.md` sẽ ghi rõ:
+  - **KHÔNG KẾT LUẬN**.
+
 ---
 
 ## 6) (Tuỳ chọn) Chạy kèm metrics (khi cần)
@@ -172,6 +192,12 @@ Nếu muốn tính `hit@k / mrr@k / ndcg@k ...` thì chạy **không có** `--co
 
 ```bash
 python RAG/eval_retrieval.py --index-dir RAG/output_index --dataset RAG/eval_queries.auto.jsonl --k 1,3,5,10 --top-k 5
+```
+
+Ví dụ đầy đủ (có metrics + evidence gate):
+
+```bash
+python RAG/eval_retrieval.py --index-dir RAG/output_index --dataset RAG/eval_queries.auto.jsonl --k 1,3,5,10 --top-k 5 --evidence-top-k 3 --min-support-rate 0.7 --min-supported-queries 1
 ```
 
 Khi đó trong `retrieval_runs/<run_id>/` sẽ có thêm `summary_metrics.json`.

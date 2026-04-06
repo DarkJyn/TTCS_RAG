@@ -1,0 +1,146 @@
+{
+  "created_at": "2026-03-16T03:41:29.354830+00:00",
+  "database": {
+    "index_dir": "output_index",
+    "vector_count": 280,
+    "vector_dim": 1024,
+    "chunk_count": 280,
+    "document_count": 4,
+    "chunks_with_heading": 276,
+    "heading_coverage": 0.9857,
+    "avg_words_per_chunk": 351.52,
+    "min_words_per_chunk": 40,
+    "max_words_per_chunk": 600,
+    "top_headings": [
+      {
+        "heading": "MỤC LỤC VĂN BẢN",
+        "chunks": 15
+      },
+      {
+        "heading": "Điều 1.",
+        "chunks": 13
+      },
+      {
+        "heading": "Điều 9 Luật Ban hành văn bản quy phạm pháp luật 2025",
+        "chunks": 8
+      },
+      {
+        "heading": "Điều 1",
+        "chunks": 8
+      },
+      {
+        "heading": "Điều 3.",
+        "chunks": 8
+      },
+      {
+        "heading": "Mục lục văn bản;",
+        "chunks": 8
+      },
+      {
+        "heading": "Mục 4. KẾT",
+        "chunks": 6
+      },
+      {
+        "heading": "Điều 43. Tổ chức thực hiện",
+        "chunks": 6
+      },
+      {
+        "heading": "Điều 11 của Nghị định này",
+        "chunks": 6
+      },
+      {
+        "heading": "MỤC LỤC",
+        "chunks": 4
+      }
+    ]
+  },
+  "queries": [
+    {
+      "query": "Điều 8 trình tự đầu tư dự án",
+      "results": [
+        {
+          "rank": 1,
+          "score": 0.674418,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::16",
+          "heading": "Điều 8. Trình",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "Điều 8. Trình tự đầu tư dự án 1. Trình tự đầu tư dự án đầu tư ứng dụng công nghệ thông tin bao gồm các giai đoạn: a) Chuẩn bị đầu tư; b) Thực hiện đầu tư; c) Kết thúc đầu tư. 2. Các hoạt động trong giai đoạn thực hiện..."
+        },
+        {
+          "rank": 2,
+          "score": 0.633938,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::19",
+          "heading": "Điều 11.",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "Điều 11. Lập, thẩm định, quyết định đầu tư dự án Việc lập, thẩm định, quyết định đầu tư dự án thực hiện theo quy định của Luật Đầu tư công và Nghị định này: 1. Thẩm quyền quyết định đầu tư dự án thực hiện theo quy địn..."
+        },
+        {
+          "rank": 3,
+          "score": 0.629742,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::83",
+          "heading": "Điều 1.",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "Điều 1. Phê duyệt đầu tư dự án (Tên dự án). . . với các nội dung chủ yếu sau: Tên dự án; chủ đầu tư; tổ chức tư vấn lập báo cáo nghiên cứu khả thi hoặc báo cáo kinh tế - kỹ thuật (nếu có); mục tiêu, quy mô đầu tư / th..."
+        }
+      ]
+    },
+    {
+      "query": "khoản 2 điều 7 dự án mua sắm",
+      "results": [
+        {
+          "rank": 1,
+          "score": 0.620419,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::13",
+          "heading": "Điều 3 của Nghị định này (sau đây gọi là dự án đầu tư hệ thống);",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "Điều 3 của Nghị định này (sau đây gọi là dự án đầu tư hệ thống); b) Dự án mua dự phòng, thay thế các thiết bị phần cứng , phần mềm thương mại thuộc hệ thống thông tin hiện có; mua phần mềm thương mại ; mua thiết bị ph..."
+        },
+        {
+          "rank": 2,
+          "score": 0.547071,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::28",
+          "heading": "Điều 1",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "Điều 1 7 . Hồ sơ quyết định dự án, nội dung, thời gian thẩm định, quyết định dự án 1. C hủ đầu tư, cơ quan, tổ chức được giao nhiệm vụ chuẩn bị đầu tư thuê tổ chức, cá nhân có năng lực, kinh nghiệm để thẩm tra báo cáo..."
+        },
+        {
+          "rank": 3,
+          "score": 0.545312,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::34",
+          "heading": "Điều 18. Lập,",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "Điều 18. Lập, thẩm định, phê duyệt, điều chỉnh thiết kế chi tiết, hồ sơ thiết kế chi tiết của dự án đầu tư hệ thống Đối với dự án thiết kế 02 bước theo quy định tại khoản 3 Điều 9 của Nghị định này, sau khi cấp có thẩ..."
+        }
+      ]
+    },
+    {
+      "query": "Điều 10 quyết định chủ trương đầu tư",
+      "results": [
+        {
+          "rank": 1,
+          "score": 0.707918,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::18",
+          "heading": "Điều 10.",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "Điều 10. Lập, thẩm định, quyết định chủ trương đầu tư dự án 1. Lập, thẩm định, quyết định chủ trương đầu tư thực hiện theo quy định tại Mục 1 Chương II của Luật Đầu tư công và các văn bản sửa đổi, bổ sung, quy định ch..."
+        },
+        {
+          "rank": 2,
+          "score": 0.624118,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::19",
+          "heading": "Điều 11.",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "Điều 11. Lập, thẩm định, quyết định đầu tư dự án Việc lập, thẩm định, quyết định đầu tư dự án thực hiện theo quy định của Luật Đầu tư công và Nghị định này: 1. Thẩm quyền quyết định đầu tư dự án thực hiện theo quy địn..."
+        },
+        {
+          "rank": 3,
+          "score": 0.610945,
+          "chunk_id": "Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin::62",
+          "heading": "Điều 16 của Nghị định này;",
+          "source_path": "input_docs\\Ngh_nh_45_2026_N_-CP_s_a_i_Ngh_nh_73_2019_N_-CP_quy_nh_qu_n_l_u_t_ng_d_ng_c_ng_ngh_th_ng_tin.txt",
+          "snippet": "vốn, khả năng cân đối nguồn vốn và việc huy động các nguồn vốn, nguồn lực khác để thực hiện dự án. 8. Thời gian quyết định phê duyệt dự án kể từ ngày cấp có thẩm quyền quyết định phê duyệt dự án nhận đủ hồ sơ hợp lệ:..."
+        }
+      ]
+    }
+  ]
+}

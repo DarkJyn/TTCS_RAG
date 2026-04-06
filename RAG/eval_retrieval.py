@@ -176,6 +176,224 @@ def format_snippet(text: str, limit: int) -> str:
     return t[: max(0, limit - 3)] + "..."
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def has_valid_citation(result: Dict[str, Any]) -> bool:
+    chunk_id = str(result.get("chunk_id") or "").strip()
+    source_path = str(result.get("source_path") or "").strip()
+    snippet = str(result.get("snippet") or "").strip()
+    return bool(chunk_id and source_path and snippet)
+
+
+def assess_query_evidence(
+    *,
+    reranked: Sequence[Dict[str, Any]],
+    rel_rows: Set[int],
+    relevant_chunk_ids: Sequence[str],
+    evidence_top_k: int,
+    snippet_chars: int,
+) -> Dict[str, Any]:
+    top_k = max(1, int(evidence_top_k))
+
+    if len(relevant_chunk_ids) <= 0:
+        return {
+            "status": "NO_GROUND_TRUTH",
+            "can_conclude": False,
+            "reason": "Query không có nhãn relevant_chunk_ids nên không thể kiểm chứng bằng chứng.",
+            "evidence_top_k": top_k,
+            "relevant_total": 0,
+            "supporting_hits": 0,
+            "supporting_citations": [],
+        }
+
+    if len(rel_rows) <= 0:
+        return {
+            "status": "NO_GROUND_TRUTH",
+            "can_conclude": False,
+            "reason": "Nhãn relevant_chunk_ids không map được sang metadata/index hiện tại.",
+            "evidence_top_k": top_k,
+            "relevant_total": len(relevant_chunk_ids),
+            "supporting_hits": 0,
+            "supporting_citations": [],
+        }
+
+    supporting: List[Dict[str, Any]] = []
+    for rank, row in enumerate(reranked[:top_k], start=1):
+        faiss_id = int(row.get("faiss_id", -1))
+        if faiss_id not in rel_rows:
+            continue
+
+        citation = {
+            "rank": int(rank),
+            "score": _safe_float(row.get("score"), 0.0),
+            "chunk_id": row.get("chunk_id"),
+            "heading": row.get("heading"),
+            "source_path": row.get("source_path"),
+            "snippet": format_snippet(str(row.get("text") or ""), int(snippet_chars)),
+        }
+        if has_valid_citation(citation):
+            supporting.append(citation)
+
+    if supporting:
+        return {
+            "status": "SUPPORTED",
+            "can_conclude": True,
+            "reason": "Tìm thấy bằng chứng hợp lệ trong top-k để hỗ trợ kết luận.",
+            "evidence_top_k": top_k,
+            "relevant_total": len(relevant_chunk_ids),
+            "supporting_hits": len(supporting),
+            "supporting_citations": supporting,
+        }
+
+    return {
+        "status": "INSUFFICIENT_EVIDENCE",
+        "can_conclude": False,
+        "reason": "Không có chunk relevant nào trong cửa sổ bằng chứng top-k.",
+        "evidence_top_k": top_k,
+        "relevant_total": len(relevant_chunk_ids),
+        "supporting_hits": 0,
+        "supporting_citations": [],
+    }
+
+
+def build_query_conclusion(evidence_assessment: Dict[str, Any]) -> Dict[str, Any]:
+    status = str(evidence_assessment.get("status") or "")
+    citations = evidence_assessment.get("supporting_citations") or []
+
+    if status == "SUPPORTED" and citations:
+        c0 = citations[0]
+        return {
+            "status": "CONCLUDED",
+            "rule": "no_evidence_no_conclusion",
+            "message": (
+                "Đủ bằng chứng để kết luận. "
+                f"Citation chính: chunk_id={c0.get('chunk_id')} | source={c0.get('source_path')}"
+            ),
+        }
+
+    if status == "NO_GROUND_TRUTH":
+        return {
+            "status": "WITHHELD",
+            "rule": "no_evidence_no_conclusion",
+            "message": "Không có ground-truth hợp lệ nên không kết luận.",
+        }
+
+    return {
+        "status": "WITHHELD",
+        "rule": "no_evidence_no_conclusion",
+        "message": "Không đủ bằng chứng nên không kết luận.",
+    }
+
+
+def build_evidence_gate_summary(
+    *,
+    all_rows: Sequence[Dict[str, Any]],
+    configs: Sequence[str],
+    min_support_rate: float,
+    min_supported_queries: int,
+    metric_summary: Dict[str, Any],
+    compare_only: bool,
+    max_k: int,
+) -> Dict[str, Any]:
+    per_config: Dict[str, Dict[str, Any]] = {}
+    candidates: List[Tuple[Tuple[float, float, float, float, float], str]] = []
+
+    for cfg in configs:
+        cfg_rows = [r for r in all_rows if str(r.get("config")) == str(cfg)]
+
+        supported = 0
+        insufficient = 0
+        no_gt = 0
+        for row in cfg_rows:
+            evidence = row.get("evidence_assessment") or {}
+            status = str(evidence.get("status") or "")
+            if status == "SUPPORTED":
+                supported += 1
+            elif status == "INSUFFICIENT_EVIDENCE":
+                insufficient += 1
+            else:
+                no_gt += 1
+
+        assessed = supported + insufficient
+        support_rate = (float(supported) / float(assessed)) if assessed > 0 else 0.0
+        gate_pass = (
+            assessed > 0
+            and supported >= int(min_supported_queries)
+            and support_rate >= float(min_support_rate)
+        )
+
+        metrics: Dict[str, float] = {}
+        if not compare_only:
+            overall = ((metric_summary.get(str(cfg)) or {}).get("overall") or {})
+            metrics = {
+                f"hit@{max_k}": _safe_float(overall.get(f"hit@{max_k}"), 0.0),
+                f"mrr@{max_k}": _safe_float(overall.get(f"mrr@{max_k}"), 0.0),
+                f"ndcg@{max_k}": _safe_float(overall.get(f"ndcg@{max_k}"), 0.0),
+            }
+
+        per_config[str(cfg)] = {
+            "total_queries": len(cfg_rows),
+            "assessed_queries": assessed,
+            "supported_queries": supported,
+            "insufficient_queries": insufficient,
+            "no_ground_truth_queries": no_gt,
+            "support_rate": support_rate,
+            "gate_pass": gate_pass,
+            "metrics_snapshot": metrics,
+        }
+
+        if gate_pass:
+            mrr = metrics.get(f"mrr@{max_k}", 0.0)
+            ndcg = metrics.get(f"ndcg@{max_k}", 0.0)
+            hit = metrics.get(f"hit@{max_k}", 0.0)
+            rank_key = (support_rate, float(supported), mrr, ndcg, hit)
+            candidates.append((rank_key, str(cfg)))
+
+    if candidates:
+        candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        winner = candidates[0][1]
+        if compare_only:
+            decision_reason = (
+                "Ít nhất một cấu hình vượt ngưỡng bằng chứng; chọn cấu hình có support_rate cao nhất."
+            )
+        else:
+            decision_reason = (
+                "Ít nhất một cấu hình vượt ngưỡng bằng chứng; chọn cấu hình có support_rate cao nhất "
+                "và metric retrieval tốt nhất."
+            )
+        final_decision = {
+            "status": "CONCLUDED",
+            "rule": "no_evidence_no_conclusion",
+            "recommended_config": winner,
+            "reason": decision_reason,
+        }
+    else:
+        final_decision = {
+            "status": "WITHHELD",
+            "rule": "no_evidence_no_conclusion",
+            "recommended_config": None,
+            "reason": (
+                "Không có cấu hình nào vượt ngưỡng bằng chứng nên hệ thống không đưa ra kết luận cuối."
+            ),
+        }
+
+    return {
+        "policy": {
+            "rule": "no_evidence_no_conclusion",
+            "min_support_rate": float(min_support_rate),
+            "min_supported_queries": int(min_supported_queries),
+            "ranking_metric": f"mrr@{max_k}" if not compare_only else None,
+        },
+        "per_config": per_config,
+        "final_decision": final_decision,
+    }
+
+
 def _stable_argsort_desc(scores: Sequence[float]) -> List[int]:
     return [i for i, _ in sorted(enumerate(scores), key=lambda x: (x[1], -x[0]), reverse=True)]
 
@@ -289,12 +507,37 @@ def parse_args() -> argparse.Namespace:
         default="retrieval_runs",
         help="Write JSONL logs + markdown report under this folder (default: retrieval_runs/).",
     )
+    p.add_argument(
+        "--evidence-top-k",
+        type=int,
+        default=3,
+        help="Cửa sổ top-k dùng để kiểm chứng bằng chứng cho tầng kết luận cuối.",
+    )
+    p.add_argument(
+        "--min-support-rate",
+        type=float,
+        default=0.7,
+        help="Tỉ lệ query có bằng chứng tối thiểu để cho phép kết luận theo config.",
+    )
+    p.add_argument(
+        "--min-supported-queries",
+        type=int,
+        default=1,
+        help="Số query có bằng chứng tối thiểu để cho phép kết luận theo config.",
+    )
     return p.parse_args()
 
 
 def main() -> None:
     _configure_utf8_output()
     args = parse_args()
+    if int(args.evidence_top_k) <= 0:
+        raise SystemExit("--evidence-top-k must be > 0")
+    if not (0.0 <= float(args.min_support_rate) <= 1.0):
+        raise SystemExit("--min-support-rate must be in [0, 1]")
+    if int(args.min_supported_queries) <= 0:
+        raise SystemExit("--min-supported-queries must be > 0")
+
     index_dir = Path(args.index_dir)
     dataset_path = Path(args.dataset)
     ks = parse_k_list(args.k)
@@ -471,6 +714,14 @@ def main() -> None:
                     }
                 )
 
+            evidence_assessment = assess_query_evidence(
+                reranked=reranked,
+                rel_rows=rel_rows,
+                relevant_chunk_ids=examples[qi]["relevant_chunk_ids"],
+                evidence_top_k=int(args.evidence_top_k),
+                snippet_chars=int(args.snippet_chars),
+            )
+
             rows_out.append(
                 {
                     "run_id": run_id,
@@ -479,6 +730,8 @@ def main() -> None:
                     "query": q,
                     "clause_signals": {"dieu": signals.dieu, "khoan": signals.khoan},
                     "relevant_chunk_ids": examples[qi]["relevant_chunk_ids"],
+                    "evidence_assessment": evidence_assessment,
+                    "final_conclusion": build_query_conclusion(evidence_assessment),
                     "results": results_out,
                 }
             )
@@ -503,6 +756,16 @@ def main() -> None:
         avgs, by_group, rows_out = eval_one_config(config=config)  # type: ignore[arg-type]
         all_summaries[str(config)] = {"overall": avgs, "by_group": by_group}
         all_rows.extend(rows_out)
+
+    evidence_summary = build_evidence_gate_summary(
+        all_rows=all_rows,
+        configs=[str(c) for c in args.configs],
+        min_support_rate=float(args.min_support_rate),
+        min_supported_queries=int(args.min_supported_queries),
+        metric_summary=all_summaries,
+        compare_only=bool(args.compare_only),
+        max_k=int(max_k),
+    )
 
     if not args.compare_only:
         print("=== AVERAGES (per config) ===")
@@ -530,6 +793,9 @@ def main() -> None:
                     "boost_khoan": float(args.boost_khoan),
                     "strict_filter": bool(args.strict_filter),
                     "compare_only": bool(args.compare_only),
+                    "evidence_top_k": int(args.evidence_top_k),
+                    "min_support_rate": float(args.min_support_rate),
+                    "min_supported_queries": int(args.min_supported_queries),
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -541,6 +807,10 @@ def main() -> None:
                 json.dumps(all_summaries, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+        (out_dir / "evidence_summary.json").write_text(
+            json.dumps(evidence_summary, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         with (out_dir / "retrieval_logs.jsonl").open("w", encoding="utf-8") as f:
             for row in all_rows:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -554,6 +824,29 @@ def main() -> None:
         report_lines.append(f"- configs: `{', '.join(args.configs)}`")
         if not args.compare_only:
             report_lines.append(f"- ks: `{', '.join(str(k) for k in ks)}`")
+        report_lines.append("")
+
+        report_lines.append("## Tầng kết luận cuối (enforce: không bằng chứng thì không kết luận)\n")
+        report_lines.append(f"- evidence_top_k: `{int(args.evidence_top_k)}`")
+        report_lines.append(f"- min_support_rate: `{float(args.min_support_rate):.2f}`")
+        report_lines.append(f"- min_supported_queries: `{int(args.min_supported_queries)}`")
+        report_lines.append("")
+        for cfg in args.configs:
+            cfg_stats = (evidence_summary.get("per_config") or {}).get(str(cfg), {})
+            report_lines.append(
+                f"- `{cfg}`: gate_pass=`{cfg_stats.get('gate_pass')}` | "
+                f"supported/assessed=`{cfg_stats.get('supported_queries')}/{cfg_stats.get('assessed_queries')}` | "
+                f"support_rate=`{_safe_float(cfg_stats.get('support_rate'), 0.0):.3f}`"
+            )
+        final_decision = evidence_summary.get("final_decision") or {}
+        if final_decision.get("status") == "CONCLUDED":
+            report_lines.append(
+                f"- Kết luận cuối: chọn config `{final_decision.get('recommended_config')}`."
+            )
+        else:
+            report_lines.append(
+                f"- Kết luận cuối: KHÔNG KẾT LUẬN. Lý do: {final_decision.get('reason')}"
+            )
         report_lines.append("")
 
         report_lines.append("## Kết quả retrieval top-k (log để làm citation sau)\n")
@@ -578,9 +871,53 @@ def main() -> None:
                         f"chunk_id=`{r.get('chunk_id')}` | heading=`{r.get('heading')}` | "
                         f"source=`{r.get('source_path')}`\n  - snippet: {r.get('snippet')}"
                     )
+                evidence = row.get("evidence_assessment") or {}
+                report_lines.append(
+                    f"- evidence_status=`{evidence.get('status')}` | "
+                    f"supporting_hits=`{evidence.get('supporting_hits')}` | "
+                    f"evidence_top_k=`{evidence.get('evidence_top_k')}`"
+                )
+                report_lines.append(
+                    f"- final_conclusion: {(row.get('final_conclusion') or {}).get('message')}"
+                )
+                supports = evidence.get("supporting_citations") or []
+                if supports:
+                    top_support = supports[0]
+                    report_lines.append(
+                        f"- top_evidence: rank={top_support.get('rank')} | chunk_id=`{top_support.get('chunk_id')}` | "
+                        f"source=`{top_support.get('source_path')}`"
+                    )
                 report_lines.append("")
 
         (out_dir / "report.md").write_text("\n".join(report_lines).strip() + "\n", encoding="utf-8")
+
+        conclusion_lines: List[str] = []
+        conclusion_lines.append("# Kết luận tự động (Evidence Gate)\n")
+        conclusion_lines.append(
+            "Nguyên tắc áp dụng: **không bằng chứng -> không kết luận**."
+        )
+        conclusion_lines.append("")
+        for cfg in args.configs:
+            cfg_stats = (evidence_summary.get("per_config") or {}).get(str(cfg), {})
+            conclusion_lines.append(
+                f"- {cfg}: gate_pass={cfg_stats.get('gate_pass')}, "
+                f"supported/assessed={cfg_stats.get('supported_queries')}/{cfg_stats.get('assessed_queries')}, "
+                f"support_rate={_safe_float(cfg_stats.get('support_rate'), 0.0):.3f}"
+            )
+        conclusion_lines.append("")
+        final_status = (evidence_summary.get("final_decision") or {}).get("status")
+        final_cfg = (evidence_summary.get("final_decision") or {}).get("recommended_config")
+        final_reason = (evidence_summary.get("final_decision") or {}).get("reason")
+        if final_status == "CONCLUDED":
+            conclusion_lines.append(f"Kết luận cuối: chọn cấu hình {final_cfg}.")
+        else:
+            conclusion_lines.append("Kết luận cuối: KHÔNG KẾT LUẬN.")
+        conclusion_lines.append(f"Lý do: {final_reason}")
+
+        (out_dir / "final_conclusion.md").write_text(
+            "\n".join(conclusion_lines).strip() + "\n",
+            encoding="utf-8",
+        )
 
 
 if __name__ == "__main__":

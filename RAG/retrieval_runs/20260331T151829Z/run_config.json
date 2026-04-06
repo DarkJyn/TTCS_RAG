@@ -1,0 +1,23 @@
+{
+  "run_id": "20260331T151829Z",
+  "created_at": "2026-03-31T15:18:29.608604Z",
+  "index_dir": "output_index",
+  "dataset": "eval_queries.template.jsonl",
+  "model_name": "BAAI/bge-m3",
+  "ks": null,
+  "configs": [
+    "semantic_only",
+    "semantic_clause_boost",
+    "semantic_clause_filter"
+  ],
+  "log_top_k": 5,
+  "oversample": 500,
+  "snippet_chars": 240,
+  "boost_dieu": 0.12,
+  "boost_khoan": 0.12,
+  "strict_filter": false,
+  "compare_only": true,
+  "evidence_top_k": 3,
+  "min_support_rate": 0.7,
+  "min_supported_queries": 1
+}
