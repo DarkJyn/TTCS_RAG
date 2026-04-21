@@ -15,7 +15,7 @@ import faiss
 
 
 HEADING_RE = re.compile(
-    r"^(Điều|Dieu|Khoản|Khoan|Mục|Muc)\s+([0-9IVXLC]+(?:[.\-][0-9]+)*)",
+    r"^(Điều|Dieu|Khoản|Khoan|Mục|Muc|Chương|Chuong|Phần|Phan|Phụ lục|Phu luc)\s+([0-9IVXLC]+(?:[.\-][0-9]+)*)",
     re.IGNORECASE,
 )
 KHOAN_DIEU_RE = re.compile(
@@ -23,6 +23,13 @@ KHOAN_DIEU_RE = re.compile(
     re.IGNORECASE,
 )
 DIEU_RE = re.compile(r"(?:Điều|Dieu)\s+([0-9IVXLC]+)", re.IGNORECASE)
+
+# Tuần 11: Broken heading merge patterns
+_HEADING_PREFIX_ONLY_RE = re.compile(
+    r"^(Điều|Dieu|Khoản|Khoan|Mục|Muc|Chương|Chuong|Phần|Phan)\s*$",
+    re.IGNORECASE,
+)
+_HEADING_NUMBER_START_RE = re.compile(r"^\s*([0-9IVXLC]+)")
 
 
 MODEL_CACHE: Dict[str, SentenceTransformer] = {}
@@ -73,10 +80,33 @@ def read_txt(file_path: Path) -> str:
     return file_path.read_text(encoding="utf-8", errors="ignore")
 
 
+def _merge_broken_headings(text: str) -> str:
+    """Ghép heading bị tách qua nhiều dòng (tuần 11).
+    Ví dụ: 'Điều\n11. Nội dung' → 'Điều 11. Nội dung'
+    """
+    lines = text.split("\n")
+    merged: list = []
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if _HEADING_PREFIX_ONLY_RE.match(stripped):
+            j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            if j < len(lines) and _HEADING_NUMBER_START_RE.match(lines[j].strip()):
+                merged.append(stripped + " " + lines[j].strip())
+                i = j + 1
+                continue
+        merged.append(lines[i])
+        i += 1
+    return "\n".join(merged)
+
+
 def normalize_text(text: str) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
+    text = _merge_broken_headings(text)  # Tuần 11: merge broken headings
     return text.strip()
 
 
@@ -333,6 +363,7 @@ def chunk_matches_clause(chunk: ChunkRecord, clause_refs: Set[str]) -> bool:
 
 def retrieval_boost(chunk: ChunkRecord, clause_refs: Set[str]) -> float:
     if not clause_refs:
+        # Tuần 11: penalty nhẹ cho chunk không có heading khi query có clause refs
         return 0.0
 
     heading_text = normalize_for_match(chunk.heading or "")
@@ -341,9 +372,14 @@ def retrieval_boost(chunk: ChunkRecord, clause_refs: Set[str]) -> float:
     boost = 0.0
     for ref in clause_refs:
         if ref in heading_text:
-            boost += 0.25
+            boost += 0.30   # Tuần 11: tăng từ 0.25 → 0.30
         elif ref in body_text:
-            boost += 0.1
+            boost += 0.10
+
+    # Tuần 11: penalty nhẹ cho chunk không có heading
+    if not chunk.heading and clause_refs:
+        boost -= 0.05
+
     return boost
 
 

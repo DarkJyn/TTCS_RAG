@@ -1,0 +1,20 @@
+{
+  "run_id": "20260413T182845Z",
+  "num_pairs": 5,
+  "macro": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "micro": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "type_accuracy": 0.0,
+  "totals": {
+    "tp": 0,
+    "fp": 7,
+    "fn": 16
+  }
+}

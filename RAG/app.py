@@ -354,21 +354,43 @@ def api_chat():
                 "text": hit.chunk.text,
             })
 
+        # Tuần 11: Evidence gate — kiểm tra chất lượng retrieval trước khi gọi LLM
+        evidence_weak = False
+        if hits:
+            top_score = hits[0].score
+            if top_score < 0.45:  # Ngưỡng score thấp → evidence yếu
+                evidence_weak = True
+
         # Try LLM response via Ollama
         llm_response = None
         llm_model_used = None
         if hits and _check_ollama():
             context = _format_retrieval_context(hits[:3])
+            # Tuần 11: Cải thiện system prompt — chain-of-thought + anti-hallucination
             system_prompt = (
-                "Bạn là trợ lý pháp lý thông minh. Trả lời câu hỏi dựa HOÀN TOÀN vào "
-                "ngữ cảnh được cung cấp. Nếu ngữ cảnh không đủ thông tin, hãy nói rõ. "
-                "Luôn trích dẫn nguồn (heading + tên văn bản). "
-                "Trả lời bằng tiếng Việt, ngắn gọn và chính xác."
+                "Bạn là trợ lý pháp lý thông minh. Tuân thủ NGHIÊM NGẶT các quy tắc sau:\n\n"
+                "1. CHỈ trả lời dựa trên ngữ cảnh được cung cấp. KHÔNG ĐƯỢC bịa thêm thông tin.\n"
+                "2. Nếu ngữ cảnh KHÔNG chứa thông tin để trả lời, bạn PHẢI nói: "
+                "'Tôi không tìm thấy thông tin này trong tài liệu được cung cấp.'\n"
+                "3. Trước khi trả lời, hãy liệt kê bằng chứng tìm được theo format:\n"
+                "   📌 Bằng chứng: [Điều/Khoản X, Tên_văn_bản]\n"
+                "4. Sau đó mới đưa ra câu trả lời tổng hợp.\n"
+                "5. Mọi khẳng định phải kèm trích dẫn nguồn cụ thể: [Điều X, Tên_văn_bản].\n"
+                "6. Trả lời bằng tiếng Việt, ngắn gọn và chính xác."
             )
+            evidence_note = ""
+            if evidence_weak:
+                evidence_note = (
+                    "\n⚠️ LƯU Ý: Độ liên quan của ngữ cảnh thấp. "
+                    "Hãy đặc biệt cẩn thận và chỉ trả lời nếu thực sự tìm thấy thông tin.\n"
+                )
             user_prompt = (
-                f"Ngữ cảnh:\n{context}\n\n"
+                f"Ngữ cảnh:{evidence_note}\n{context}\n\n"
                 f"Câu hỏi: {query}\n\n"
-                "Hãy trả lời dựa trên ngữ cảnh trên. Trích dẫn nguồn cụ thể."
+                "Hãy thực hiện:\n"
+                "1. Liệt kê bằng chứng liên quan từ ngữ cảnh.\n"
+                "2. Trả lời câu hỏi dựa trên bằng chứng đó.\n"
+                "3. Trích dẫn nguồn [Điều X, Tên_văn_bản] cho mỗi khẳng định."
             )
             llm_response = _call_ollama(user_prompt, system_prompt)
             llm_model_used = _get_available_ollama_model()
@@ -378,9 +400,16 @@ def api_chat():
             answer = "Không tìm thấy đoạn nào liên quan trong tài liệu."
             evidence_status = "INSUFFICIENT_EVIDENCE"
         else:
-            evidence_status = "SUPPORTED"
+            evidence_status = "WEAK_EVIDENCE" if evidence_weak else "SUPPORTED"
             if llm_response:
-                answer = llm_response
+                # Tuần 11: Thêm cảnh báo evidence yếu vào đầu câu trả lời
+                if evidence_weak:
+                    answer = (
+                        "⚠️ *Lưu ý: Độ liên quan của kết quả tìm kiếm thấp. "
+                        "Câu trả lời có thể không chính xác.*\n\n" + llm_response
+                    )
+                else:
+                    answer = llm_response
             else:
                 # Fallback: format retrieval results as answer
                 parts = ["**Kết quả tìm kiếm liên quan:**\n"]

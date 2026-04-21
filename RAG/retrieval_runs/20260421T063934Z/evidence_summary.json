@@ -1,0 +1,58 @@
+{
+  "policy": {
+    "rule": "no_evidence_no_conclusion",
+    "min_support_rate": 0.7,
+    "min_supported_queries": 1,
+    "ranking_metric": "mrr@10"
+  },
+  "per_config": {
+    "semantic_only": {
+      "total_queries": 316,
+      "assessed_queries": 316,
+      "supported_queries": 192,
+      "insufficient_queries": 124,
+      "no_ground_truth_queries": 0,
+      "support_rate": 0.6075949367088608,
+      "gate_pass": false,
+      "metrics_snapshot": {
+        "hit@10": 0.7278481012658228,
+        "mrr@10": 0.5705834337954592,
+        "ndcg@10": 0.6079244760369564
+      }
+    },
+    "semantic_clause_boost": {
+      "total_queries": 316,
+      "assessed_queries": 316,
+      "supported_queries": 198,
+      "insufficient_queries": 118,
+      "no_ground_truth_queries": 0,
+      "support_rate": 0.6265822784810127,
+      "gate_pass": false,
+      "metrics_snapshot": {
+        "hit@10": 0.75,
+        "mrr@10": 0.5926499397227245,
+        "ndcg@10": 0.6302827752390465
+      }
+    },
+    "semantic_clause_filter": {
+      "total_queries": 316,
+      "assessed_queries": 316,
+      "supported_queries": 187,
+      "insufficient_queries": 129,
+      "no_ground_truth_queries": 0,
+      "support_rate": 0.5917721518987342,
+      "gate_pass": false,
+      "metrics_snapshot": {
+        "hit@10": 0.7341772151898734,
+        "mrr@10": 0.5611525517379948,
+        "ndcg@10": 0.6016947974292001
+      }
+    }
+  },
+  "final_decision": {
+    "status": "WITHHELD",
+    "rule": "no_evidence_no_conclusion",
+    "recommended_config": null,
+    "reason": "Không có cấu hình nào vượt ngưỡng bằng chứng nên hệ thống không đưa ra kết luận cuối."
+  }
+}

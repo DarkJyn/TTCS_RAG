@@ -1,0 +1,20 @@
+{
+  "run_id": "20260421T062605Z",
+  "num_pairs": 5,
+  "macro": {
+    "precision": 0.9,
+    "recall": 0.6667,
+    "f1": 0.7333
+  },
+  "micro": {
+    "precision": 0.8462,
+    "recall": 0.6875,
+    "f1": 0.7586
+  },
+  "type_accuracy": 0.9091,
+  "totals": {
+    "tp": 11,
+    "fp": 2,
+    "fn": 5
+  }
+}
