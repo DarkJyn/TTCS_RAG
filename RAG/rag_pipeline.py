@@ -237,8 +237,8 @@ def chunk_document(
         base_text = section.text
         heading = section.heading
         sub_texts = split_long_chunk(base_text, max_words, overlap_words)
-        for sub_text in sub_texts:
-            if len(sub_text.split()) < min_words:
+        for i, sub_text in enumerate(sub_texts):
+            if i > 0 and len(sub_text.split()) < min_words:
                 continue
             chunk_id = f"{doc.doc_id}::{order}"
             chunks.append(

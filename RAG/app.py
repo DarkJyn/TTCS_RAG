@@ -135,12 +135,13 @@ def _call_ollama(prompt: str, system_prompt: str = "") -> Optional[str]:
             "options": {
                 "temperature": 0.3,
                 "num_predict": 1024,
+                "num_ctx": 8192,
             },
         }
         resp = http_requests.post(
             f"{OLLAMA_BASE_URL}/api/generate",
             json=payload,
-            timeout=120,
+            timeout=300,
         )
         if resp.status_code == 200:
             return resp.json().get("response", "")
@@ -174,6 +175,12 @@ _BROAD_KEYWORDS = [
     "đề cập", "de cap", "phạm vi", "pham vi",
 ]
 
+
+_COMPARE_KEYWORDS = [
+    "so sánh", "so sanh", "khác biệt", "khac biet", 
+    "thay đổi", "thay doi", "điểm mới", "diem moi",
+    "giống và khác", "giong va khac"
+]
 
 def _is_broad_question(query: str) -> bool:
     """Detect questions about the whole document (summary, structure, counts)."""
@@ -424,6 +431,7 @@ def api_chat():
 
         # Detect broad/summary questions about the whole document
         is_broad = _is_broad_question(query)
+        is_compare = any(kw in query.lower() for kw in _COMPARE_KEYWORDS)
         retrieval_top_k = 10 if is_broad else 5
 
         # Retrieve relevant chunks
@@ -459,7 +467,34 @@ def api_chat():
         # Try LLM response via Ollama
         llm_response = None
         llm_model_used = None
-        if hits and _check_ollama():
+        
+        # Build comparison context if requested
+        compare_context = ""
+        if is_compare and _session.get("doc1_text") and _session.get("doc2_text"):
+            if not _session.get("compare_results"):
+                diffs = compare_documents(_session.get("doc1_text"), _session.get("doc2_text"))
+                stats = summary_stats(diffs)
+                _session["compare_results"] = {"stats": stats, "diffs": [d.to_dict() for d in diffs]}
+            
+            stats = _session["compare_results"]["stats"]
+            diff_dicts = _session["compare_results"]["diffs"]
+            
+            compare_context = f"THỐNG KÊ THAY ĐỔI GIỮA 2 TÀI LIỆU:\n- Thêm mới: {stats['added']}\n- Xóa bỏ: {stats['removed']}\n- Chỉnh sửa: {stats['modified']}\n\nCHI TIẾT ĐIỂM KHÁC BIỆT:\n"
+            changed_diffs = [d for d in diff_dicts if d['diff_type'] != 'unchanged']
+            for d in changed_diffs[:15]:
+                heading = d['heading'] or "Phần chung"
+                if d['diff_type'] == 'added':
+                    compare_context += f"- Thêm mới tại [{heading}]: {d['new_text']}\n"
+                elif d['diff_type'] == 'removed':
+                    compare_context += f"- Xóa bỏ tại [{heading}]: {d['old_text']}\n"
+                elif d['diff_type'] == 'modified':
+                    compare_context += f"- Thay đổi tại [{heading}]:\n  + Cũ: {d['old_text']}\n  + Mới: {d['new_text']}\n"
+            if len(changed_diffs) > 15:
+                compare_context += f"\n... và {len(changed_diffs) - 15} thay đổi khác."
+            
+            evidence_weak = False  # Strong evidence from exact diffs
+
+        if (hits or compare_context) and _check_ollama():
             context_hits = hits[:5] if is_broad else hits[:3]
             context = _format_retrieval_context(context_hits)
 
@@ -470,6 +505,13 @@ def api_chat():
                 context = (
                     f"TỔNG QUAN TÀI LIỆU:\n{doc_outlines}\n\n"
                     f"---\n\nCHI TIẾT LIÊN QUAN:\n{context}"
+                )
+                
+            # For compare questions, prepend compare context
+            if compare_context:
+                context = (
+                    f"{compare_context}\n\n"
+                    f"---\n\nNGỮ CẢNH TÌM KIẾM BỔ SUNG:\n{context}"
                 )
 
             # Tuần 11: Cải thiện system prompt — chain-of-thought + anti-hallucination
@@ -507,7 +549,7 @@ def api_chat():
         response_type = "summary" if is_broad else "retrieval"
         doc_outlines_data = _session.get("doc_outlines")
 
-        if not hits:
+        if not hits and not compare_context:
             answer = "Không tìm thấy đoạn nào liên quan trong tài liệu."
             evidence_status = "INSUFFICIENT_EVIDENCE"
         else:
@@ -520,6 +562,11 @@ def api_chat():
                     )
                 else:
                     answer = llm_response
+            elif is_compare and compare_context:
+                answer = (
+                    "⚠️ *Lưu ý: Không thể kết nối với mô hình AI (LLM) để tạo tóm tắt. Đây là kết quả so sánh trực tiếp:*\n\n" +
+                    compare_context
+                )
             elif is_broad and doc_outlines_data:
                 # Broad question without LLM → structured summary from outlines
                 answer = doc_outlines_data
