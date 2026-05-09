@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>LegalDiff | Comparison</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#d5e3fc", "on-secondary": "#ffffff",
+                        "outline-variant": "#c6c6cd", "surface-dim": "#dcd9db",
+                        "surface-container-lowest": "#ffffff", "inverse-primary": "#bec6e0",
+                        "secondary": "#515f74", "on-primary": "#ffffff",
+                        "tertiary-fixed": "#fcdeb5", "tertiary-fixed-dim": "#dec29a",
+                        "primary-fixed": "#dae2fd", "surface": "#fcf8fa",
+                        "on-tertiary-fixed": "#271901", "background": "#fcf8fa",
+                        "on-tertiary-container": "#98805d", "on-surface": "#1b1b1d",
+                        "primary-fixed-dim": "#bec6e0", "on-background": "#1b1b1d",
+                        "surface-container-high": "#eae7e9", "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#b9c7df", "surface-container": "#f0edef",
+                        "tertiary": "#000000", "primary-container": "#131b2e",
+                        "on-secondary-container": "#57657a", "surface-container-low": "#f6f3f5",
+                        "outline": "#76777d", "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a", "surface-bright": "#fcf8fa",
+                        "inverse-surface": "#303032", "inverse-on-surface": "#f3f0f2",
+                        "error-container": "#ffdad6", "on-primary-fixed": "#131b2e",
+                        "on-surface-variant": "#45464d", "surface-variant": "#e4e2e4",
+                        "on-tertiary-fixed-variant": "#574425", "surface-tint": "#565e74",
+                        "on-secondary-fixed-variant": "#3a485b", "on-error": "#ffffff",
+                        "primary": "#000000", "on-primary-fixed-variant": "#3f465c",
+                        "on-secondary-fixed": "#0d1c2e", "tertiary-container": "#271901",
+                        "surface-container-highest": "#e4e2e4", "secondary-fixed": "#d5e3fc",
+                        "on-primary-container": "#7c839b"
+                    },
+                    "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                    "spacing": { "container-max": "1440px", "gutter": "24px", "unit": "8px", "margin": "32px" },
+                    "fontFamily": { "body-lg":["Inter"], "display-lg":["Inter"], "label-sm":["Inter"], "headline-md":["Inter"], "body-md":["Inter"] },
+                    "fontSize": {
+                        "body-lg": ["18px",{"lineHeight":"1.6","fontWeight":"400"}],
+                        "display-lg": ["36px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}],
+                        "label-sm": ["13px",{"lineHeight":"1.2","letterSpacing":"0.01em","fontWeight":"500"}],
+                        "headline-md": ["24px",{"lineHeight":"1.3","fontWeight":"600"}],
+                        "body-md": ["16px",{"lineHeight":"1.5","fontWeight":"400"}]
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .diff-added { background-color: rgba(34,197,94,0.15); border-left: 3px solid #22c55e; }
+        .diff-removed { background-color: rgba(239,68,68,0.15); border-left: 3px solid #ef4444; }
+        .diff-modified { background-color: rgba(245,158,11,0.15); border-left: 3px solid #f59e0b; }
+        .glass-effect { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .diff-insert { background: #bbf7d0; padding: 1px 3px; border-radius: 2px; }
+        .diff-delete { background: #fecaca; padding: 1px 3px; border-radius: 2px; text-decoration: line-through; }
+        .diff-replace-old { background: #fecaca; padding: 1px 3px; border-radius: 2px; }
+        .diff-replace-new { background: #bbf7d0; padding: 1px 3px; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased">
+    <!-- TopNavBar -->
+    <nav class="bg-white/70 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_4px_30px_rgba(0,0,0,0.05)] flex justify-between items-center w-full h-14 px-6 z-50 fixed top-0">
+        <a href="/upload" class="text-lg font-bold tracking-tighter text-slate-900 no-underline">LegalDiff</a>
+        <div class="flex items-center gap-6">
+            <span class="font-['Inter'] antialiased tracking-tight text-sm font-medium text-slate-500" id="nav-llm-status">Local LLM: Checking...</span>
+            <div class="flex items-center gap-4">
+                <button class="hover:bg-slate-50/50 transition-colors duration-200 p-2 rounded-full"><span class="material-symbols-outlined text-slate-900">sensors</span></button>
+                <button class="hover:bg-slate-50/50 transition-colors duration-200 p-2 rounded-full"><span class="material-symbols-outlined text-slate-900">account_circle</span></button>
+            </div>
+        </div>
+    </nav>
+    <!-- SideNavBar -->
+    <aside class="fixed left-0 top-14 w-20 md:w-64 h-[calc(100vh-3.5rem)] flex flex-col py-4 z-40 bg-white/40 backdrop-blur-lg border-r border-slate-200/30">
+        <div class="px-6 mb-8">
+            <p class="font-['Inter'] text-xs uppercase tracking-widest font-bold text-slate-400 mb-1">Workspace</p>
+            <p class="text-[10px] text-slate-400">v1.0.2</p>
+        </div>
+        <div class="flex-1 flex flex-col gap-1">
+            <a class="flex items-center gap-3 px-6 py-3 text-slate-400 hover:bg-slate-100/50 transition-transform duration-200 hover:translate-x-1" href="/upload">
+                <span class="material-symbols-outlined">cloud_upload</span>
+                <span class="hidden md:block font-['Inter'] text-xs uppercase tracking-widest font-bold">Upload</span>
+            </a>
+            <a class="flex items-center gap-3 px-6 py-3 bg-blue-50 text-blue-700 border-r-4 border-blue-600 rounded-r-sm" href="/comparison">
+                <span class="material-symbols-outlined">difference</span>
+                <span class="hidden md:block font-['Inter'] text-xs uppercase tracking-widest font-bold">Comparison</span>
+            </a>
+            <a class="flex items-center gap-3 px-6 py-3 text-slate-400 hover:bg-slate-100/50 transition-transform duration-200 hover:translate-x-1" href="/chatbot">
+                <span class="material-symbols-outlined">chat_bubble</span>
+                <span class="hidden md:block font-['Inter'] text-xs uppercase tracking-widest font-bold">Legal Chat</span>
+            </a>
+        </div>
+        <div class="px-4 mt-auto">
+            <button id="btn-analyze" class="w-full bg-primary text-white py-3 rounded shadow-sm hover:opacity-90 transition-all font-label-sm">Analyze Document</button>
+        </div>
+    </aside>
+    <!-- Main Canvas -->
+    <main class="pl-20 md:pl-64 pt-14 h-screen flex flex-col overflow-hidden">
+        <!-- Toolbar -->
+        <header class="h-16 px-gutter border-b border-outline-variant/30 flex items-center justify-between bg-surface-container-lowest/50 backdrop-blur-sm z-30">
+            <div class="flex items-center gap-4">
+                <div class="flex bg-surface-container-low p-1 rounded-lg" id="filter-group">
+                    <button class="filter-btn px-4 py-1.5 rounded text-sm font-medium bg-white shadow-sm text-primary" data-filter="all">All</button>
+                    <button class="filter-btn px-4 py-1.5 rounded text-sm font-medium text-on-surface-variant hover:bg-white/50 transition-colors" data-filter="modified">Modified</button>
+                    <button class="filter-btn px-4 py-1.5 rounded text-sm font-medium text-on-surface-variant hover:bg-white/50 transition-colors" data-filter="added">Added</button>
+                    <button class="filter-btn px-4 py-1.5 rounded text-sm font-medium text-on-surface-variant hover:bg-white/50 transition-colors" data-filter="removed">Removed</button>
+                    <button class="filter-btn px-4 py-1.5 rounded text-sm font-medium text-on-surface-variant hover:bg-white/50 transition-colors" data-filter="unchanged">Unchanged</button>
+                </div>
+                <div class="h-6 w-px bg-outline-variant/50"></div>
+                <button id="btn-run-compare" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm font-medium hover:opacity-90 transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                    Run Comparison
+                    <svg id="compare-spinner" class="hidden animate-spin h-4 w-4 text-white ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                </button>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btn-export" class="flex items-center gap-2 px-4 py-2 border border-outline text-primary rounded font-label-sm hover:bg-surface-container-high transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">ios_share</span>
+                    Export Report
+                </button>
+            </div>
+        </header>
+        <!-- Stats Bar -->
+        <section id="compare-stats" class="hidden grid grid-cols-4 gap-4 px-gutter py-4 bg-surface-container-low/30 border-b border-outline-variant/20">
+            <div class="bg-white p-3 rounded-lg border border-outline-variant/20 shadow-sm flex items-center justify-between">
+                <div><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Total Changes</p><p class="text-xl font-bold text-primary" id="stat-total">0</p></div>
+                <span class="material-symbols-outlined text-blue-500 opacity-50">analytics</span>
+            </div>
+            <div class="bg-white p-3 rounded-lg border border-outline-variant/20 shadow-sm flex items-center justify-between">
+                <div><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Additions</p><p class="text-xl font-bold text-green-600" id="stat-added">0</p></div>
+                <span class="material-symbols-outlined text-green-600 opacity-50">add_circle</span>
+            </div>
+            <div class="bg-white p-3 rounded-lg border border-outline-variant/20 shadow-sm flex items-center justify-between">
+                <div><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Deletions</p><p class="text-xl font-bold text-error" id="stat-removed">0</p></div>
+                <span class="material-symbols-outlined text-error opacity-50">remove_circle</span>
+            </div>
+            <div class="bg-white p-3 rounded-lg border border-outline-variant/20 shadow-sm flex items-center justify-between">
+                <div><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Modifications</p><p class="text-xl font-bold text-amber-500" id="stat-modified">0</p></div>
+                <span class="material-symbols-outlined text-amber-500 opacity-50">edit_note</span>
+            </div>
+        </section>
+        <!-- Split Pane Workspace -->
+        <div class="flex-1 overflow-hidden flex bg-surface">
+            <!-- Document A: Original -->
+            <section class="flex-1 overflow-y-auto border-r border-outline-variant/30 px-margin py-10 bg-white" id="pane-doc-a">
+                <div class="max-w-3xl mx-auto">
+                    <div class="mb-8 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Document A</span>
+                            <h2 class="text-lg font-bold text-primary" id="doc-a-name">—</h2>
+                        </div>
+                    </div>
+                    <div id="doc-a-content" class="space-y-4 font-['Inter'] leading-relaxed text-slate-700 text-base">
+                        <p class="text-slate-400 italic">Upload 2 documents and click "Run Comparison" to see results.</p>
+                    </div>
+                </div>
+            </section>
+            <!-- Document B: New Version -->
+            <section class="flex-1 overflow-y-auto px-margin py-10 bg-surface-container-lowest" id="pane-doc-b">
+                <div class="max-w-3xl mx-auto">
+                    <div class="mb-8 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-blue-600">Document B</span>
+                            <h2 class="text-lg font-bold text-primary" id="doc-b-name">—</h2>
+                        </div>
+                    </div>
+                    <div id="doc-b-content" class="space-y-4 font-['Inter'] leading-relaxed text-slate-700 text-base">
+                        <p class="text-slate-400 italic">Upload 2 documents and click "Run Comparison" to see results.</p>
+                    </div>
+                </div>
+            </section>
+            <!-- Contextual Sidebar (Right) -->
+            <aside class="w-80 bg-white border-l border-outline-variant/30 flex flex-col glass-effect hidden lg:flex" id="insights-sidebar">
+                <div class="p-6 border-b border-outline-variant/20">
+                    <h3 class="font-headline-md text-primary text-sm mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[20px]">auto_awesome</span> AI Insights
+                    </h3>
+                    <div id="ai-insights" class="space-y-4">
+                        <p class="text-sm text-slate-400 italic">Run comparison to see AI insights.</p>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-6">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Change Log</h3>
+                    <div id="change-log" class="space-y-3">
+                        <p class="text-xs text-slate-400 italic">No changes yet.</p>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <!-- ═══ JavaScript ═══ -->
+    <script>
+    (() => {
+        "use strict";
+        const btnCompare = document.getElementById("btn-run-compare");
+        const compareSpinner = document.getElementById("compare-spinner");
+        const compareStats = document.getElementById("compare-stats");
+        const docAName = document.getElementById("doc-a-name");
+        const docBName = document.getElementById("doc-b-name");
+        const docAContent = document.getElementById("doc-a-content");
+        const docBContent = document.getElementById("doc-b-content");
+        const changeLog = document.getElementById("change-log");
+        const navLlmStatus = document.getElementById("nav-llm-status");
+
+        let diffData = null;
+        let currentFilter = "all";
+
+        // ── Status ──
+        async function checkStatus() {
+            try {
+                const res = await fetch("/api/status");
+                const data = await res.json();
+                navLlmStatus.textContent = data.ollama_available ? "Local LLM: " + (data.ollama_model || "Connected") : "Local LLM: Offline";
+                if (data.doc1_name) docAName.textContent = data.doc1_name;
+                if (data.doc2_name) docBName.textContent = data.doc2_name;
+                if (data.doc1_loaded && data.doc2_loaded) btnCompare.disabled = false;
+                return data;
+            } catch { navLlmStatus.textContent = "Disconnected"; return null; }
+        }
+        checkStatus();
+
+        // ── Filters ──
+        document.querySelectorAll(".filter-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll(".filter-btn").forEach(b => { b.className = "filter-btn px-4 py-1.5 rounded text-sm font-medium text-on-surface-variant hover:bg-white/50 transition-colors"; });
+                btn.className = "filter-btn px-4 py-1.5 rounded text-sm font-medium bg-white shadow-sm text-primary";
+                currentFilter = btn.dataset.filter;
+                if (diffData) renderDiffs(diffData.diffs, currentFilter);
+            });
+        });
+
+        // ── Run Comparison ──
+        btnCompare.addEventListener("click", async () => {
+            btnCompare.disabled = true;
+            compareSpinner.classList.remove("hidden");
+            try {
+                const res = await fetch("/api/compare", { method: "POST" });
+                const data = await res.json();
+                if (data.error) { alert("Error: " + data.error); return; }
+                diffData = data;
+                renderStats(data.stats);
+                renderDiffs(data.diffs, currentFilter);
+                renderChangeLog(data.diffs);
+            } catch (e) { alert("Connection error: " + e.message); }
+            finally { btnCompare.disabled = false; compareSpinner.classList.add("hidden"); }
+        });
+
+        // ── Analyze button ──
+        document.getElementById("btn-analyze")?.addEventListener("click", () => btnCompare.click());
+
+        // ── Export (placeholder) ──
+        document.getElementById("btn-export")?.addEventListener("click", () => {
+            if (!diffData) { alert("Run comparison first."); return; }
+            const blob = new Blob([JSON.stringify(diffData, null, 2)], { type: "application/json" });
+            const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+            a.download = "comparison_report.json"; a.click();
+        });
+
+        function renderStats(stats) {
+            compareStats.classList.remove("hidden");
+            compareStats.classList.add("grid");
+            document.getElementById("stat-total").textContent = stats.total;
+            document.getElementById("stat-added").textContent = stats.added;
+            document.getElementById("stat-removed").textContent = stats.removed;
+            document.getElementById("stat-modified").textContent = stats.modified;
+        }
+
+        function renderDiffs(diffs, filter) {
+            let filtered = filter === "all" ? diffs : diffs.filter(d => d.diff_type === filter);
+            const priority = { modified: 0, added: 1, removed: 2, unchanged: 3 };
+            filtered = [...filtered].sort((a, b) => (priority[a.diff_type] ?? 9) - (priority[b.diff_type] ?? 9));
+
+            // Doc A (old text)
+            if (filtered.length === 0) {
+                docAContent.innerHTML = `<p class="text-slate-400 italic">No items match filter "${filter}".</p>`;
+                docBContent.innerHTML = `<p class="text-slate-400 italic">No items match filter "${filter}".</p>`;
+                return;
+            }
+
+            let htmlA = "", htmlB = "";
+            filtered.forEach(d => {
+                const heading = escHtml(d.heading || "(Preamble)");
+                const headingTag = `<p class="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">${heading}</p>`;
+
+                if (d.diff_type === "modified") {
+                    const oldHL = renderInlineDiff(d.inline_diffs, "old");
+                    const newHL = renderInlineDiff(d.inline_diffs, "new");
+                    htmlA += `<div class="diff-modified px-4 py-3 rounded-lg">${headingTag}<p>${oldHL}</p></div>`;
+                    htmlB += `<div class="diff-modified px-4 py-3 rounded-lg">${headingTag}<p>${newHL}</p></div>`;
+                } else if (d.diff_type === "added") {
+                    htmlA += `<div class="px-4 py-3 opacity-30">${headingTag}<p class="text-slate-400 line-through">(not in original)</p></div>`;
+                    htmlB += `<div class="diff-added px-4 py-3 rounded-lg">${headingTag}<p>${escHtml(d.new_text)}</p></div>`;
+                } else if (d.diff_type === "removed") {
+                    htmlA += `<div class="diff-removed px-4 py-3 rounded-lg">${headingTag}<p>${escHtml(d.old_text)}</p></div>`;
+                    htmlB += `<div class="px-4 py-3 opacity-30">${headingTag}<p class="text-slate-400 line-through">(removed)</p></div>`;
+                } else {
+                    const txt = escHtml((d.old_text || "").substring(0, 300)) + ((d.old_text||"").length > 300 ? "..." : "");
+                    htmlA += `<div class="px-4 py-3">${headingTag}<p>${txt}</p></div>`;
+                    htmlB += `<div class="px-4 py-3">${headingTag}<p>${txt}</p></div>`;
+                }
+            });
+            docAContent.innerHTML = htmlA;
+            docBContent.innerHTML = htmlB;
+        }
+
+        function renderChangeLog(diffs) {
+            const changes = diffs.filter(d => d.diff_type !== "unchanged");
+            if (changes.length === 0) { changeLog.innerHTML = `<p class="text-xs text-slate-400 italic">No changes detected.</p>`; return; }
+            const colors = { modified: "bg-amber-500", added: "bg-green-500", removed: "bg-error" };
+            const labels = { modified: "Modified", added: "Added", removed: "Removed" };
+            changeLog.innerHTML = changes.slice(0, 20).map(d => {
+                const heading = escHtml(d.heading || "(Preamble)");
+                return `<div class="p-4 rounded-lg bg-surface-container-low border border-outline-variant/20 hover:border-blue-400/30 transition-colors cursor-pointer">
+                    <div class="flex items-center gap-2 mb-1"><span class="w-2 h-2 rounded-full ${colors[d.diff_type] || 'bg-slate-400'}"></span><span class="text-xs font-semibold">${labels[d.diff_type] || d.diff_type} — ${heading}</span></div>
+                    <p class="text-xs text-slate-500">${escHtml(((d.old_text||d.new_text)||"").substring(0,80))}...</p>
+                </div>`;
+            }).join("");
+        }
+
+        function renderInlineDiff(inlineDiffs, side) {
+            if (!inlineDiffs || !inlineDiffs.length) return "";
+            return inlineDiffs.map(d => {
+                if (d.tag === "equal") return escHtml(side === "old" ? d.old_text : d.new_text);
+                if (d.tag === "insert") return side === "new" ? `<span class="diff-insert">${escHtml(d.new_text)}</span>` : "";
+                if (d.tag === "delete") return side === "old" ? `<span class="diff-delete">${escHtml(d.old_text)}</span>` : "";
+                if (d.tag === "replace") return side === "old" ? `<span class="diff-replace-old">${escHtml(d.old_text)}</span>` : `<span class="diff-replace-new">${escHtml(d.new_text)}</span>`;
+                return escHtml(side === "old" ? d.old_text : d.new_text);
+            }).join(" ");
+        }
+
+        function escHtml(str) { if (!str) return ""; const d = document.createElement("div"); d.textContent = str; return d.innerHTML; }
+    })();
+    </script>
+</body>
+</html>

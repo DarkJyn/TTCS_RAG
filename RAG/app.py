@@ -55,6 +55,7 @@ _session: Dict[str, Any] = {
     "temp_index": None,       # faiss.Index
     "temp_chunks": None,      # List[ChunkRecord]
     "model_name": None,
+    "doc_outlines": None,     # str – structural outline of uploaded docs
 }
 
 # Ollama settings
@@ -159,13 +160,118 @@ def _format_retrieval_context(hits: list) -> str:
     return "\n\n---\n\n".join(parts)
 
 
+# ── Broad-question helpers ────────────────────────────────────────────────
+
+_BROAD_KEYWORDS = [
+    "tóm tắt", "tom tat", "nội dung chính", "noi dung chinh",
+    "bao nhiêu", "bao nhieu", "tổng quan", "tong quan",
+    "cấu trúc", "cau truc", "liệt kê", "liet ke",
+    "có những", "co nhung", "gồm những", "gom nhung",
+    "danh sách", "danh sach", "tổng số", "tong so",
+    "mấy điều", "may dieu", "mấy khoản", "may khoan",
+    "toàn bộ", "toan bo", "khái quát", "khai quat",
+    "quy định gì", "quy dinh gi", "nói về", "noi ve",
+    "đề cập", "de cap", "phạm vi", "pham vi",
+]
+
+
+def _is_broad_question(query: str) -> bool:
+    """Detect questions about the whole document (summary, structure, counts)."""
+    return any(kw in query.lower() for kw in _BROAD_KEYWORDS)
+
+
+def _extract_doc_outline(chunks: list, doc_name: str) -> str:
+    """Extract a structural outline from document chunks."""
+    headings = []
+    dieu_count = 0
+    chuong_count = 0
+    muc_count = 0
+    for c in chunks:
+        if c.heading:
+            headings.append(c.heading)
+            h = c.heading.strip().lower()
+            if h.startswith("điều") or h.startswith("dieu"):
+                dieu_count += 1
+            elif h.startswith("chương") or h.startswith("chuong"):
+                chuong_count += 1
+            elif h.startswith("mục") or h.startswith("muc"):
+                muc_count += 1
+    parts = [f"📄 Tài liệu: {doc_name}"]
+    parts.append(f"  - Số chương: {chuong_count}")
+    parts.append(f"  - Số mục: {muc_count}")
+    parts.append(f"  - Số điều: {dieu_count}")
+    parts.append(f"  - Tổng số đoạn nội dung: {len(chunks)}")
+    if headings:
+        parts.append("  - Danh sách cấu trúc:")
+        for h in headings[:80]:
+            parts.append(f"    • {h}")
+        if len(headings) > 80:
+            parts.append(f"    ... và {len(headings) - 80} mục khác")
+    return "\n".join(parts)
+
+
+def _build_outline_stats() -> dict | None:
+    """Return structured outline stats for the frontend summary cards."""
+    chunks = _session.get("temp_chunks")
+    if not chunks:
+        return None
+
+    docs = {}
+    for c in chunks:
+        doc_id = c.doc_id
+        if doc_id not in docs:
+            docs[doc_id] = {
+                "name": _session.get("doc1_name") if doc_id == Path(_session.get("doc1_path", "")).stem else _session.get("doc2_name"),
+                "dieu": 0, "chuong": 0, "muc": 0, "chunks": 0, "headings": [],
+            }
+        docs[doc_id]["chunks"] += 1
+        if c.heading:
+            docs[doc_id]["headings"].append(c.heading)
+            h = c.heading.strip().lower()
+            if h.startswith("điều") or h.startswith("dieu"):
+                docs[doc_id]["dieu"] += 1
+            elif h.startswith("chương") or h.startswith("chuong"):
+                docs[doc_id]["chuong"] += 1
+            elif h.startswith("mục") or h.startswith("muc"):
+                docs[doc_id]["muc"] += 1
+
+    return {
+        "documents": [
+            {
+                "name": info["name"] or doc_id,
+                "chuong": info["chuong"],
+                "muc": info["muc"],
+                "dieu": info["dieu"],
+                "chunks": info["chunks"],
+                "headings": info["headings"][:30],
+            }
+            for doc_id, info in docs.items()
+        ]
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Routes
 # ═══════════════════════════════════════════════════════════════════════════
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("upload.html")
+
+
+@app.route("/upload")
+def upload_page():
+    return render_template("upload.html")
+
+
+@app.route("/comparison")
+def comparison_page():
+    return render_template("comparison.html")
+
+
+@app.route("/chatbot")
+def chatbot_page():
+    return render_template("chatbot.html")
 
 
 @app.route("/api/status", methods=["GET"])
@@ -217,6 +323,7 @@ def api_upload():
 
         # Build temporary index from both docs for chatbot retrieval
         all_chunks: List[ChunkRecord] = []
+        outline_parts: List[str] = []
         for label, text, path in [
             ("doc1", _session.get("doc1_text"), _session.get("doc1_path")),
             ("doc2", _session.get("doc2_text"), _session.get("doc2_path")),
@@ -230,12 +337,16 @@ def api_upload():
             )
             chunks = chunk_document(doc, max_words=600, overlap_words=80, min_words=40)
             all_chunks.extend(chunks)
+            # Extract outline for broad chatbot questions
+            doc_name = _session.get(f"{label}_name", Path(path).name)
+            outline_parts.append(_extract_doc_outline(chunks, doc_name))
 
         if all_chunks:
             texts = [c.text for c in all_chunks]
             index = _build_temp_index(texts, model_name)
             _session["temp_index"] = index
             _session["temp_chunks"] = all_chunks
+        _session["doc_outlines"] = "\n\n".join(outline_parts) if outline_parts else None
 
         return jsonify({
             "success": True,
@@ -298,30 +409,10 @@ def api_chat():
         if not query:
             return jsonify({"error": "Câu hỏi không được để trống"}), 400
 
-        # Determine which index/chunks to use
+        # Determine which index/chunks to use — only uploaded documents
         index = _session.get("temp_index")
         chunks = _session.get("temp_chunks")
         model_name = _session.get("model_name")
-
-        # Fallback to global index if no temp index
-        if index is None:
-            index_path = OUTPUT_INDEX_DIR / "index.faiss"
-            if index_path.exists():
-                index = faiss.read_index(str(index_path))
-                chunks = load_metadata(OUTPUT_INDEX_DIR)
-                # Convert dict metadata to ChunkRecord
-                chunks = [
-                    ChunkRecord(
-                        chunk_id=c.get("chunk_id", ""),
-                        doc_id=c.get("doc_id", ""),
-                        source_path=c.get("source_path", ""),
-                        heading=c.get("heading"),
-                        text=c.get("text", ""),
-                        order=int(c.get("order", 0)),
-                    )
-                    if isinstance(c, dict) else c
-                    for c in chunks
-                ]
 
         if index is None or not chunks:
             return jsonify({
@@ -331,13 +422,17 @@ def api_chat():
         if not model_name:
             model_name = resolve_model_name(OUTPUT_INDEX_DIR, None)
 
+        # Detect broad/summary questions about the whole document
+        is_broad = _is_broad_question(query)
+        retrieval_top_k = 10 if is_broad else 5
+
         # Retrieve relevant chunks
         hits = retrieve_chunks(
             query=query,
             index=index,
             chunks=chunks if isinstance(chunks[0], ChunkRecord) else [],
             model_name=model_name,
-            top_k=5,
+            top_k=retrieval_top_k,
             clause_filter=False,
         )
 
@@ -365,7 +460,18 @@ def api_chat():
         llm_response = None
         llm_model_used = None
         if hits and _check_ollama():
-            context = _format_retrieval_context(hits[:3])
+            context_hits = hits[:5] if is_broad else hits[:3]
+            context = _format_retrieval_context(context_hits)
+
+            # For broad questions, prepend document outlines so the LLM
+            # has a bird's-eye view of the uploaded documents.
+            doc_outlines = _session.get("doc_outlines")
+            if is_broad and doc_outlines:
+                context = (
+                    f"TỔNG QUAN TÀI LIỆU:\n{doc_outlines}\n\n"
+                    f"---\n\nCHI TIẾT LIÊN QUAN:\n{context}"
+                )
+
             # Tuần 11: Cải thiện system prompt — chain-of-thought + anti-hallucination
             system_prompt = (
                 "Bạn là trợ lý pháp lý thông minh. Tuân thủ NGHIÊM NGẶT các quy tắc sau:\n\n"
@@ -376,7 +482,9 @@ def api_chat():
                 "   📌 Bằng chứng: [Điều/Khoản X, Tên_văn_bản]\n"
                 "4. Sau đó mới đưa ra câu trả lời tổng hợp.\n"
                 "5. Mọi khẳng định phải kèm trích dẫn nguồn cụ thể: [Điều X, Tên_văn_bản].\n"
-                "6. Trả lời bằng tiếng Việt, ngắn gọn và chính xác."
+                "6. Trả lời bằng tiếng Việt, ngắn gọn và chính xác.\n"
+                "7. Khi câu hỏi yêu cầu tóm tắt, liệt kê, hoặc đếm số điều/khoản, "
+                "hãy sử dụng phần TỔNG QUAN TÀI LIỆU nếu có."
             )
             evidence_note = ""
             if evidence_weak:
@@ -396,13 +504,15 @@ def api_chat():
             llm_model_used = _get_available_ollama_model()
 
         # Build response
+        response_type = "summary" if is_broad else "retrieval"
+        doc_outlines_data = _session.get("doc_outlines")
+
         if not hits:
             answer = "Không tìm thấy đoạn nào liên quan trong tài liệu."
             evidence_status = "INSUFFICIENT_EVIDENCE"
         else:
             evidence_status = "WEAK_EVIDENCE" if evidence_weak else "SUPPORTED"
             if llm_response:
-                # Tuần 11: Thêm cảnh báo evidence yếu vào đầu câu trả lời
                 if evidence_weak:
                     answer = (
                         "⚠️ *Lưu ý: Độ liên quan của kết quả tìm kiếm thấp. "
@@ -410,8 +520,11 @@ def api_chat():
                     )
                 else:
                     answer = llm_response
+            elif is_broad and doc_outlines_data:
+                # Broad question without LLM → structured summary from outlines
+                answer = doc_outlines_data
             else:
-                # Fallback: format retrieval results as answer
+                # Specific question without LLM → retrieval results
                 parts = ["**Kết quả tìm kiếm liên quan:**\n"]
                 for c in citations[:3]:
                     parts.append(
@@ -421,13 +534,20 @@ def api_chat():
                     )
                 answer = "\n---\n".join(parts)
 
+        # Build outline_stats for frontend summary cards
+        outline_stats = None
+        if is_broad:
+            outline_stats = _build_outline_stats()
+
         return jsonify({
             "query": query,
             "answer": answer,
+            "response_type": response_type,
             "evidence_status": evidence_status,
             "llm_used": llm_response is not None,
             "llm_model": llm_model_used,
             "citations": citations,
+            "outline_stats": outline_stats,
         })
 
     except Exception as e:
@@ -449,16 +569,16 @@ def api_reset():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("  Trợ lý so sánh văn bản pháp lý — RAG + Local LLM")
-    print("  Địa chỉ: http://localhost:5000")
+    print("  LegalDiff - Legal Document Comparison (RAG + Local LLM)")
+    print("  URL: http://localhost:5000")
     print("=" * 60)
 
     if _check_ollama():
         model = _get_available_ollama_model()
-        print(f"  ✅ Ollama đang chạy — Model: {model}")
+        print(f"  [OK] Ollama running - Model: {model}")
     else:
-        print("  ⚠️  Ollama chưa chạy — Chatbot sẽ dùng retrieval thuần")
-        print(f"     Để bật LLM: ollama serve & ollama pull {OLLAMA_MODEL}")
+        print("  [WARN] Ollama not running - Chatbot will use retrieval only")
+        print(f"     To enable LLM: ollama serve & ollama pull {OLLAMA_MODEL}")
     print("=" * 60)
 
     app.run(host="0.0.0.0", port=5000, debug=True)
