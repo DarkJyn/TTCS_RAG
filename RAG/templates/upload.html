@@ -353,6 +353,19 @@
                     statusTextMain.textContent = "LLM Offline";
                 }
 
+                if (data.doc1_loaded) {
+                    document.getElementById("dropzone-content-1").classList.replace("flex", "hidden");
+                    document.getElementById("loaded-1").classList.replace("hidden", "flex");
+                    document.getElementById("loaded-name-1").textContent = data.doc1_name;
+                    document.getElementById("loaded-size-1").textContent = "Đã lưu trên hệ thống";
+                }
+                if (data.doc2_loaded) {
+                    document.getElementById("dropzone-content-2").classList.replace("flex", "hidden");
+                    document.getElementById("loaded-2").classList.replace("hidden", "flex");
+                    document.getElementById("loaded-name-2").textContent = data.doc2_name;
+                    document.getElementById("loaded-size-2").textContent = "Đã lưu trên hệ thống";
+                }
+
                 return data;
             } catch {
                 statusDotMain.className = "w-3 h-3 rounded-full bg-red-500";

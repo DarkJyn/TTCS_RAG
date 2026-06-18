@@ -19,10 +19,17 @@ HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 KHOAN_DIEU_RE = re.compile(
-    r"(?:Khoản|Khoan)\s+(\d+)\s+(?:,\s*)?(?:Điều|Dieu)\s+([0-9IVXLC]+)",
+    r"(?:Khoản|Khoan)(?:\s+(?:số|so)){0,2}\s+(\d+)\b(?:\s+(?:của|cua))?\s+(?:Điều|Dieu)(?:\s+(?:luật|luat|số|so|lệ|le|của|cua)){0,2}\s+([0-9IVXLC]+)\b",
     re.IGNORECASE,
 )
-DIEU_RE = re.compile(r"(?:Điều|Dieu)\s+([0-9IVXLC]+)", re.IGNORECASE)
+DIEU_KHOAN_RE = re.compile(
+    r"(?:Điều|Dieu)(?:\s+(?:luật|luat|số|so|lệ|le|của|cua)){0,2}\s+([0-9IVXLC]+)\b\s+(?:của\s+)?(?:khoản|khoan)(?:\s+(?:số|so)){0,2}\s+(\d+)\b",
+    re.IGNORECASE,
+)
+DIEU_RE = re.compile(
+    r"(?:Điều|Dieu)(?:\s+(?:luật|luat|số|so|lệ|le|của|cua)){0,2}\s+([0-9IVXLC]+)\b",
+    re.IGNORECASE,
+)
 
 # Tuần 11: Broken heading merge patterns
 _HEADING_PREFIX_ONLY_RE = re.compile(
@@ -115,6 +122,7 @@ def normalize_for_match(text: str) -> str:
         c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn"
     )
     no_accents = no_accents.lower()
+    no_accents = no_accents.replace("đ", "d")
     no_accents = re.sub(r"\s+", " ", no_accents)
     return no_accents.strip()
 
@@ -127,6 +135,13 @@ def extract_clause_refs(text: str) -> Set[str]:
         khoan_no = match.group(1)
         dieu_no = match.group(2)
         refs.add(f"khoan {khoan_no} dieu {dieu_no}")
+        refs.add(f"dieu {dieu_no}")
+
+    for match in DIEU_KHOAN_RE.finditer(normalized):
+        dieu_no = match.group(1)
+        khoan_no = match.group(2)
+        refs.add(f"khoan {khoan_no} dieu {dieu_no}")
+        refs.add(f"dieu {dieu_no}")
 
     for match in DIEU_RE.finditer(normalized):
         dieu_no = match.group(1)

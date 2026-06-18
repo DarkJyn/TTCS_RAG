@@ -221,6 +221,20 @@
                 if (data.doc1_name) docAName.textContent = data.doc1_name;
                 if (data.doc2_name) docBName.textContent = data.doc2_name;
                 if (data.doc1_loaded && data.doc2_loaded) btnCompare.disabled = false;
+
+                if (data.has_compare) {
+                    try {
+                        const cmpRes = await fetch("/api/compare", { method: "GET" });
+                        const cmpData = await cmpRes.json();
+                        if (cmpData && cmpData.stats) {
+                            diffData = cmpData;
+                            renderStats(cmpData.stats);
+                            renderDiffs(cmpData.diffs, currentFilter);
+                            renderChangeLog(cmpData.diffs);
+                        }
+                    } catch (e) { console.error("Could not load existing compare data", e); }
+                }
+
                 return data;
             } catch { navLlmStatus.textContent = "Disconnected"; return null; }
         }

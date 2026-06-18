@@ -91,8 +91,13 @@
             </a>
         </nav>
         <div class="px-4 mt-auto">
+            <button id="btn-new-chat" class="w-full mb-3 bg-white border border-slate-200 text-slate-700 py-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-[18px]">add_comment</span>
+                <span class="hidden md:inline">New Chat</span>
+            </button>
             <button id="btn-analyze" class="w-full bg-primary text-on-primary py-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-transform hover:scale-[1.02] active:scale-95">
-                Analyze Document
+                <span class="hidden md:inline">Analyze Document</span>
+                <span class="md:hidden material-symbols-outlined">analytics</span>
             </button>
         </div>
     </aside>
@@ -222,6 +227,32 @@
             } catch { navLlmStatus.textContent = "Disconnected"; }
         }
         checkStatus();
+
+        // ── Chat History ──
+        async function loadChatHistory() {
+            try {
+                const res = await fetch("/api/chat_history");
+                const data = await res.json();
+                if (data.history && data.history.length > 0) {
+                    if (chatWelcome) chatWelcome.remove();
+                    document.getElementById("suggested-chips")?.classList.add("hidden");
+                    for (const msg of data.history) {
+                        appendMessage(msg.role, msg.content, msg.citations, msg.meta);
+                    }
+                }
+            } catch (e) { console.error("Failed to load chat history", e); }
+        }
+        loadChatHistory();
+
+        document.getElementById("btn-new-chat")?.addEventListener("click", async () => {
+            if (!confirm("Are you sure you want to start a new chat? This will clear the current conversation.")) return;
+            try {
+                await fetch("/api/chat_history", { method: "DELETE" });
+                chatList.innerHTML = "";
+                chatList.appendChild(chatWelcome);
+                document.getElementById("suggested-chips")?.classList.remove("hidden");
+            } catch (e) { console.error("Failed to clear chat", e); }
+        });
 
         // ── Chat Input ──
         chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });

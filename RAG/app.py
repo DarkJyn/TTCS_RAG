@@ -56,6 +56,7 @@ _session: Dict[str, Any] = {
     "temp_chunks": None,      # List[ChunkRecord]
     "model_name": None,
     "doc_outlines": None,     # str – structural outline of uploaded docs
+    "chat_history": [],       # List[Dict] – chat history
 }
 
 # Ollama settings
@@ -325,8 +326,9 @@ def api_upload():
             _session["doc2_text"] = normalize_text(_read_file(path2))
             _session["doc2_name"] = file2.filename
 
-        # Clear old comparison results
+        # Clear old comparison results and chat history
         _session["compare_results"] = None
+        _session["chat_history"] = []
 
         # Build temporary index from both docs for chatbot retrieval
         all_chunks: List[ChunkRecord] = []
@@ -382,9 +384,11 @@ def api_documents():
     })
 
 
-@app.route("/api/compare", methods=["POST"])
+@app.route("/api/compare", methods=["GET", "POST"])
 def api_compare():
-    """Compare two uploaded documents."""
+    """Compare two uploaded documents or get existing comparison."""
+    if request.method == "GET":
+        return jsonify(_session.get("compare_results") or {})
     try:
         doc1_text = _session.get("doc1_text")
         doc2_text = _session.get("doc2_text")
@@ -415,6 +419,11 @@ def api_chat():
         query = data.get("query", "").strip()
         if not query:
             return jsonify({"error": "Câu hỏi không được để trống"}), 400
+
+        # Save user query to history immediately
+        if "chat_history" not in _session or _session["chat_history"] is None:
+            _session["chat_history"] = []
+        _session["chat_history"].append({"role": "user", "content": query})
 
         # Determine which index/chunks to use — only uploaded documents
         index = _session.get("temp_index")
@@ -488,7 +497,22 @@ def api_chat():
                 elif d['diff_type'] == 'removed':
                     compare_context += f"- Xóa bỏ tại [{heading}]: {d['old_text']}\n"
                 elif d['diff_type'] == 'modified':
-                    compare_context += f"- Thay đổi tại [{heading}]:\n  + Cũ: {d['old_text']}\n  + Mới: {d['new_text']}\n"
+                    compare_context += f"- Thay đổi tại [{heading}]:\n"
+                    inline_diffs = d.get('inline_diffs', [])
+                    actual_changes = [ild for ild in inline_diffs if ild.get('tag') != 'equal']
+                    if actual_changes:
+                        for inline in actual_changes:
+                            tag = inline.get('tag')
+                            old_w = inline.get('old_text', '').strip()
+                            new_w = inline.get('new_text', '').strip()
+                            if tag == 'replace':
+                                compare_context += f"  • Thay thế: \"{old_w}\" bằng \"{new_w}\"\n"
+                            elif tag == 'delete':
+                                compare_context += f"  • Xóa bỏ: \"{old_w}\"\n"
+                            elif tag == 'insert':
+                                compare_context += f"  • Thêm mới: \"{new_w}\"\n"
+                    else:
+                        compare_context += f"  • Cũ: {d['old_text']}\n  • Mới: {d['new_text']}\n"
             if len(changed_diffs) > 15:
                 compare_context += f"\n... và {len(changed_diffs) - 15} thay đổi khác."
             
@@ -586,6 +610,22 @@ def api_chat():
         if is_broad:
             outline_stats = _build_outline_stats()
 
+        meta = {
+            "response_type": response_type,
+            "evidence_status": evidence_status,
+            "llm_used": llm_response is not None,
+            "llm_model": llm_model_used,
+            "outline_stats": outline_stats
+        }
+
+        # Save bot response to history
+        _session["chat_history"].append({
+            "role": "bot",
+            "content": answer,
+            "citations": citations,
+            "meta": meta
+        })
+
         return jsonify({
             "query": query,
             "answer": answer,
@@ -602,11 +642,19 @@ def api_chat():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/chat_history", methods=["GET", "DELETE"])
+def api_chat_history():
+    """Get or clear chat history."""
+    if request.method == "DELETE":
+        _session["chat_history"] = []
+        return jsonify({"success": True})
+    return jsonify({"history": _session.get("chat_history", [])})
+
 @app.route("/api/reset", methods=["POST"])
 def api_reset():
     """Reset session state."""
     for k in _session:
-        _session[k] = None
+        _session[k] = [] if k == "chat_history" else None
     return jsonify({"success": True})
 
 

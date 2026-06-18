@@ -17,8 +17,8 @@ from sentence_transformers import SentenceTransformer
 ConfigName = Literal["semantic_only", "semantic_clause_boost", "semantic_clause_filter"]
 
 
-CLAUSE_DIEU_RE = re.compile(r"(?:^|[\s,;:()])(?:điều|dieu)\s+([0-9IVXLC]+(?:[.\-][0-9]+)*)", re.IGNORECASE)
-CLAUSE_KHOAN_RE = re.compile(r"(?:^|[\s,;:()])(?:khoản|khoan)\s+([0-9]+)", re.IGNORECASE)
+CLAUSE_DIEU_RE = re.compile(r"(?:^|[\s,;:()])(?:điều|dieu|đieu)(?:\s+(?:luật|luat|số|so|lệ|le|của|cua)){0,2}\s+([0-9IVXLC]+(?:[.\-][0-9]+)*)\b", re.IGNORECASE)
+CLAUSE_KHOAN_RE = re.compile(r"(?:^|[\s,;:()])(?:khoản|khoan)(?:\s+(?:số|so)){0,2}\s+([0-9]+)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -135,8 +135,8 @@ def extract_clause_signals(query: str) -> ClauseSignals:
 def _make_exact_phrase_re(prefix: str, value: str) -> re.Pattern[str]:
     v = re.escape(_norm_text(value))
     p = _norm_text(prefix)
-    if p in {"điều", "dieu"}:
-        p_re = r"(?:điều|dieu)"
+    if p in {"điều", "dieu", "đieu"}:
+        p_re = r"(?:điều|dieu|đieu)"
     elif p in {"khoản", "khoan"}:
         p_re = r"(?:khoản|khoan)"
     else:
